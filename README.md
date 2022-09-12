@@ -197,3 +197,14 @@ Note as part of the build a local Node installation is downloaded to build the f
 [![YourKit](https://www.yourkit.com/images/yklogo.png)](https://www.yourkit.com/youmonitor/)
 
 We thank YourKit for supporting open source projects with profiler and monitoring tooling.
+
+## Internal Build
+
+If you want to deploy a custom version to your entreprise maven repository:
+- Create and/or edit `~/.gradle/gradle.properties`
+- Add these entries :
+  - `internalUsername=<username to publish artifacts>`
+  - `internalPassword=<password to publish artifacts>`
+  - `internalReleasesUrl=<full URL where to publish releases>`
+  - `internalSnapshotsUrl=<full URL where to publish snapshots>`
+  - `crnkVersion=<full version (e.g: 3.x.0-custom-SNAPSHOT)>`
