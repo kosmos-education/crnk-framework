@@ -177,7 +177,7 @@ gradle.beforeProject { Project project ->
 
 					// Will only apply to non snapshot builds.
 					// Uses credentials as described above, supports both regular and in memory signing.
-					signAllPublications()
+					//signAllPublications()
 
 					pom {
 						name = "Crnk"
