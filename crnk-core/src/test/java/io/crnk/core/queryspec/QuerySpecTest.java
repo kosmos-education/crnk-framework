@@ -33,7 +33,7 @@ public class QuerySpecTest {
                 .suppress(Warning.NONFINAL_FIELDS)
                 .withPrefabValues(FilterSpec.class, new FilterSpec(1), new FilterSpec(2))
                 .withPrefabValues(QuerySpec.class, querySpec1, querySpec2)
-                .withIgnoredFields("resourceClass", "resourceType") // ignore unused fields in equals and hashcode
+                .withIgnoredFields("resourceClass") // ignore unused field in equals and hashcode
                 .verify();
     }
 

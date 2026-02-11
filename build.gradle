@@ -6,8 +6,6 @@ buildscript {
 		def depMgmtVersion = versions['dependency.management.plugin.version']
 
 		classpath "io.spring.gradle:dependency-management-plugin:${depMgmtVersion}"
-		classpath 'org.asciidoctor:asciidoctor-gradle-plugin:2.3.0'
-		classpath 'org.asciidoctor:asciidoctorj-pdf:1.6.2'
 		classpath 'com.moowork.gradle:gradle-node-plugin:1.1.1'
 		classpath 'org.ajoberstar.git-publish:gradle-git-publish:3.0.1'
 		classpath 'org.ajoberstar.grgit:grgit-gradle:4.1.1'
@@ -65,77 +63,97 @@ if (JavaVersion.current().isJava8Compatible()) {
 	}
 }
 
-gradle.beforeProject { Project project ->
-	project.with {
-		apply plugin: "eclipse"
+allprojects {
+	ext {
+		dockerHubUser = System.getenv('DOCKER_HUB_USER')
+		dockerHubPass = System.getenv('DOCKER_HUB_PASS')
+	}
 
-		apply plugin: 'maven-publish'
+	// get password from environment if available
+	String sonarLogin = System.env['SONAR_LOGIN']
+	if (sonarLogin) {
+		System.setProperty("sonar.login", sonarLogin)
+	}
 
-		def docs = project.name == 'crnk-documentation'
-		def ui = project.name == 'crnk-ui'
-		def testProject = project.name == 'crnk-test'
-		def legacyBraveProject = project.name == 'crnk-brave'
-		def bom = project.name == 'crnk-bom'
-		def examples = project.name.contains('example')
-		def genGradleProject = project.name.contains('crnk-gen-gradle')
+	repositories {
+		mavenCentral()
+		maven {
+			url('https://plugins.gradle.org/m2')
+		}
+	}
+}
+
+subprojects {
+	apply plugin: "eclipse"
+	apply plugin: 'maven-publish'
+
+	version = rootProject.version
+	group = rootProject.group
+
+	def docs = project.name == 'crnk-documentation'
+	def ui = project.name == 'crnk-ui'
+	def testProject = project.name == 'crnk-test'
+	def legacyBraveProject = project.name == 'crnk-brave'
+	def bom = project.name == 'crnk-bom'
+	def examples = project.name.contains('example')
+	def genGradleProject = project.name.contains('crnk-gen-gradle')
 
 		if (!docs) {
-			apply plugin: 'java'
-			apply plugin: 'java-library'
+		apply plugin: 'java'
+		apply plugin: 'java-library'
 
-			sourceCompatibility = 1.17
-			targetCompatibility = 1.17
+		sourceCompatibility = 1.17
+		targetCompatibility = 1.17
 
-			if (!bom) {
+		if (!bom) {
+			dependencies {
+				testImplementation group: 'junit', name: 'junit', version: '4.13.2'
+				testImplementation group: 'org.mockito', name: 'mockito-core', version: '5.5.0'
+				testImplementation group: 'org.assertj', name: 'assertj-core', version: '3.24.2'
+				api group: 'jakarta.annotation', name: 'jakarta.annotation-api', version: '2.1.1'
+				api group: 'jakarta.xml.bind', name: 'jakarta.xml.bind-api', version: '4.0.1'
+			}
+
+			test {
+				useJUnitPlatform()
+				maxParallelForks = 1
+
+				testLogging {
+					exceptionFormat = 'full'
+				}
+			}
+
+			configurations.configureEach {
+				exclude group: "org.slf4j", module: "slf4j-log4j12"
+				exclude group: "log4j", module: "log4j"
+				exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
+				exclude group: 'commons-logging', module: 'commons-logging'
+			}
+
+			apply plugin: 'io.spring.dependency-management'
+			dependencyManagement {
+				imports {
+					mavenBom 'io.projectreactor:reactor-bom:Bismuth-RELEASE'
+					mavenBom 'org.glassfish.jersey:jersey-bom:3.1.9'
+				}
 				dependencies {
-					testImplementation group: 'junit', name: 'junit', version: '4.13.2'
-					testImplementation group: 'org.mockito', name: 'mockito-core', version: '5.5.0'
-					testImplementation group: 'org.assertj', name: 'assertj-core', version: '3.24.2'
-					api group: 'jakarta.annotation', name: 'jakarta.annotation-api', version: '2.1.1'
-					api group: 'jakarta.xml.bind', name: 'jakarta.xml.bind-api', version: '4.0.1'
-				}
+					dependency 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.18.2'
+					dependency 'com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.18.2'
+					dependency 'com.fasterxml.jackson.jakarta.rs:jackson-jakarta-rs-json-provider:2.18.2'
+					dependency 'com.fasterxml.jackson.jakarta.rs:jackson-jakarta-rs-xml-provider:2.18.2'
+					dependency 'com.fasterxml.jackson.jakarta.rs:jackson-jakarta-rs-base:2.18.2'
+					dependency 'com.fasterxml.jackson.module:jackson-module-jakarta-xmlbind-annotations:2.18.2'
 
-				test {
-					useJUnitPlatform()
-					maxParallelForks = 1
+					dependency 'jakarta.xml.bind:jakarta.xml.bind-api:4.0.1'
 
-					testLogging {
-						exceptionFormat = 'full'
-					}
-				}
-
-				configurations.configureEach {
-					exclude group: "org.slf4j", module: "slf4j-log4j12"
-					exclude group: "log4j", module: "log4j"
-					exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
-					exclude group: 'commons-logging', module: 'commons-logging'
-				}
-
-				apply plugin: 'io.spring.dependency-management'
-				dependencyManagement {
-					imports {
-						mavenBom 'io.projectreactor:reactor-bom:Bismuth-RELEASE'
-						mavenBom 'org.glassfish.jersey:jersey-bom:3.1.9'
-					}
-					dependencies {
-						dependency 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.18.2'
-						dependency 'com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.18.2'
-						dependency 'com.fasterxml.jackson.jakarta.rs:jackson-jakarta-rs-json-provider:2.18.2'
-						dependency 'com.fasterxml.jackson.jakarta.rs:jackson-jakarta-rs-xml-provider:2.18.2'
-						dependency 'com.fasterxml.jackson.jakarta.rs:jackson-jakarta-rs-base:2.18.2'
-						dependency 'com.fasterxml.jackson.module:jackson-module-jakarta-xmlbind-annotations:2.18.2'
-
-						dependency 'jakarta.xml.bind:jakarta.xml.bind-api:4.0.1'
-
-						dependency 'org.reflections:reflections:0.10.2'
-					}
+					dependency 'org.reflections:reflections:0.10.2'
 				}
 			}
 		}
-//	}
+	}
 //
-//		 // TODO gradle publishing to maven central?
-//		 if (!docs && !examples && !testProject && !legacyBraveProject) {
+//	 // TODO gradle publishing to maven central?
+//	 if (!docs && !examples && !testProject && !legacyBraveProject) {
 //		 	apply plugin: "jacoco"
 //		 	jacoco {
 //		 		toolVersion = "0.8.10"
@@ -164,92 +182,86 @@ gradle.beforeProject { Project project ->
 //		 	}
 //		 }
 //
-		tasks.register('compileJavaWithParams', JavaCompile) {
-			options.compilerArgs.add("-parameters")
+	tasks.register('compileJavaWithParams', JavaCompile) {
+		options.compilerArgs.add("-parameters")
+	}
+
+	apply plugin: 'maven-publish'
+
+	if (!docs && !examples) {
+
+		tasks.register('sourcesJar', Jar) {
+			from sourceSets.main.allSource
+			archiveClassifier = 'sources'
 		}
 
-		apply plugin: 'maven-publish'
+		tasks.register('javadocJar', Jar) {
+			dependsOn 'javadoc'
+			from javadoc.destinationDir
+			archiveClassifier = 'javadoc'
+		}
 
- 		if (!docs && !examples) {
 
-			tasks.register('sourcesJar', Jar) {
-				from sourceSets.main.allSource
-				archiveClassifier = 'sources'
+		apply plugin: "com.vanniktech.maven.publish.base"
+
+		mavenPublishing {
+			// available options:
+			//   - JavaLibrary
+			//   - GradlePlugin
+			//   - AndroidLibrary
+			//   - KotlinJvm
+			//   - KotlinJs
+			//   - KotlinMultiplatform
+			// the first parameter configures the javadoc jar, available options:
+			//   - None
+			//   - Empty
+			//   - Javadoc
+			//   - Dokka("dokkaHtml") - the parameter is the name of the Dokka task
+			// second one is for whether to publish sources, optional, defaults to true (not supported for KotlinMultiplatform(
+			// AndroidLibrary has a third parameter for which variant to publish, defaults to "release"
+			configure(new JavaLibrary(new JavadocJar.Javadoc(), true))
+
+			pom {
+				name = "Crnk"
+				description = "A description of what my library does."
+				inceptionYear = "2020"
+				url = "https://github.com/crnk-project/crnk-framework/"
+				licenses {
+					license {
+						name = "The Apache License, Version 2.0"
+						url = "http://www.apache.org/licenses/LICENSE-2.0.txt"
+						distribution = "http://www.apache.org/licenses/LICENSE-2.0.txt"
+					}
+				}
+				developers {
+					developer {
+						id = "crnk"
+						name = "crnk"
+						url = "https://github.com/crnk-project/"
+					}
+				}
+				scm {
+					url = "https://github.com/crnk-project/crnk-framework"
+					connection = "scm:git:git://github.com/crnk-project/crnk-framework.git"
+					developerConnection = "scm:git:ssh://git@github.com/crnk-project/crnk-framework.git"
+				}
 			}
+		}
 
-			tasks.register('javadocJar', Jar) {
-				dependsOn 'javadoc'
-				from javadoc.destinationDir
-				archiveClassifier = 'javadoc'
+		publishing {
+			repositories {
+				maven {
+					name 'internal'
+					def releasesRepoUrl = internalReleasesUrl
+					def snapshotsRepoUrl = internalSnapshotsUrl
+					url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+					credentials(PasswordCredentials)
+				}
 			}
+		}
 
-
- 			plugins.withId("com.vanniktech.maven.publish.base") {
- 				group = GROUP_ID
-
- 				mavenPublishing {
-// 					publishToMavenCentral("DEFAULT")
-//
-// 					// Will only apply to non snapshot builds.
-// 					// Uses credentials as described above, supports both regular and in memory signing.
-// 					signAllPublications()
-//
- 					pom {
- 						name = "Crnk"
- 						description = "A description of what my library does."
- 						inceptionYear = "2020"
- 						url = "https ://github.com/crnk-project/crnk-framework/"
- 						licenses {
- 							license {
- 								name = "The Apache License, Version 2.0"
- 								url = "http://www.apache.org/licenses/LICENSE-2.0.txt"
- 								distribution = "http://www.apache.org/licenses/LICENSE-2.0.txt"
- 							}
- 						}
- 						developers {
- 							developer {
- 								id = "crnk"
- 								name = "crnk"
- 								url = "https://github.com/crnk-project/"
- 							}
- 						}
- 						scm {
- 							url = "https://github.com/crnk-project/crnk-framework"
- 							connection = "scm:git:git://github.com/crnk-project/crnk-framework.git"
- 							developerConnection = "scm:git:ssh://git@github.com/crnk-project/crnk-framework.git"
- 						}
- 					}
- 				}
- 			}
-
- 			apply plugin: "com.vanniktech.maven.publish.base"
-
- 			mavenPublishing {
- 				// available options:
- 				//   - JavaLibrary
- 				//   - GradlePlugin
- 				//   - AndroidLibrary
- 				//   - KotlinJvm
- 				//   - KotlinJs
- 				//   - KotlinMultiplatform
- 				// the first parameter configures the javadoc jar, available options:
- 				//   - None
- 				//   - Empty
- 				//   - Javadoc
- 				//   - Dokka("dokkaHtml") - the parameter is the name of the Dokka task
- 				// second one is for whether to publish sources, optional, defaults to true (not supported for KotlinMultiplatform(
- 				// AndroidLibrary has a third parameter for which variant to publish, defaults to "release"
- 				configure(new JavaLibrary(new JavadocJar.Javadoc(), true))
- 			}
-//
-//
-// 			def releaseBuild = project.hasProperty('stable')
-//
-//
- 		}
-//
-// 	}
- }
+//		def releaseBuild = project.hasProperty('stable')
+	}
 //
 // // coveralls setup
 // apply plugin: "jacoco"
@@ -295,5 +307,4 @@ gradle.beforeProject { Project project ->
 //
 // 	dependsOn jacocoRootReport
 }
-
 

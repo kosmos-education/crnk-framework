@@ -115,6 +115,7 @@ esac
 CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
 
 
+
 JDK_DOWNLOAD_URL="https://github.com/AdoptOpenJDK/openjdk17-binaries/releases/download/jdk-2021-05-07-13-31/OpenJDK-jdk_x64_JDK_OS_hotspot_2021-05-06-23-30.JDK_DIST_SUFFIX"
 JDK_VERSION="17+20"
 
